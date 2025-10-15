@@ -10,3 +10,7 @@ Route::get('/', function () {
 Route::resource('page_requests', PageRequestController::class)->only([
     'index', 'create', 'store', 'show'
 ]);
+
+Route::post('/page_requests/{id}/retry', [
+    PageRequestController::class, 'retryVisualization'
+])->name('page_requests.retryVisualization');

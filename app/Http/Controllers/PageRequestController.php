@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\PageRequest;
 use Illuminate\Http\Request;
+use App\Jobs\ProcessPageRequestJob;
+
 class PageRequestController extends Controller
 {
     // List all page requests
@@ -19,21 +21,36 @@ class PageRequestController extends Controller
         return view('page_requests.create');
     }
 
-    // Store new page request
+    /**
+     * Handle the submission of a Wikipedia URL and create a page request.
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
     public function store(Request $request)
     {
+        // Validate input
         $request->validate([
             'url' => 'required|url',
         ]);
 
+        // Create page request record
         $pageRequest = PageRequest::create([
             'url' => $request->url,
             'status' => 'pending',
         ]);
 
-        // Here you might dispatch a job to process the request asynchronously
+        // Dispatch asynchronous job to process this request
+        // This job handles data extraction, visualization generation, and updating status
+        if (app()->environment() !== 'production') {
+            $job = new ProcessPageRequestJob($pageRequest);
+            $job->handle();
+        } else {
+            ProcessPageRequestJob::dispatch($pageRequest);
+        }
+
+        // Redirect user to the show page with success message
         return redirect()->route('page_requests.show',$pageRequest->id)
-            ->with('success','Page request submitted successfully.');
+            ->with('success','Page request submitted successfully. Processing will begin shortly.');
     }
 
     // Show details of a page request
@@ -41,5 +58,27 @@ class PageRequestController extends Controller
     {
         $pageRequest->load('tableData','visualizations');
         return view('page_requests.show',compact('pageRequest'));
+    }
+
+    public function retryVisualization($id)
+    {
+        $pageRequest = PageRequest::find($id);
+
+        if (!$pageRequest) {
+            return response()->json(['error' => 'PageRequest not found'], 404);
+        }
+
+        // Reset status to 'pending' or initial state
+        $pageRequest->update(['status' => 'pending']);
+
+        // Dispatch the job again to regenerate visualization
+        if (app()->environment() !== 'production') {
+            $job = new ProcessPageRequestJob($pageRequest);
+            $job->handle();
+        } else {
+            ProcessPageRequestJob::dispatch($pageRequest);
+        }
+
+        return response()->json(['message' => 'Visualization regeneration started'], 200);
     }
 }

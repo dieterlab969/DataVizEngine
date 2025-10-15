@@ -14,8 +14,13 @@ return new class extends Migration
         Schema::create('visualizations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('page_request_id')->constrained()->onDelete('cascade');
-            $table->string('file_path');
             $table->timestamps();
+            $table->integer('table_index');
+            $table->string('numeric_column');
+            $table->string('label_column');
+            $table->json('labels');
+            $table->json('values');
+            $table->string('title')->nullable();
         });
     }
 

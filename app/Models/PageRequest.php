@@ -20,4 +20,5 @@ class PageRequest extends Model
     {
         return $this->hasMany(Visualization::class);
     }
+
 }
