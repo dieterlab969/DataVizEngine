@@ -19,7 +19,7 @@
 </main>
 
 <footer class="bg-gray-200 text-center p-4 text-sm text-gray-600">
-    &copy; {{ date('Y') }} Your Company
+    &copy; {{ date('Y') }} Wikipedia Table Visualizer
 </footer>
 </body>
 </html>
