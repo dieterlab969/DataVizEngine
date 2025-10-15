@@ -50,3 +50,25 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Common .gitignore configuration for Laravel
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+.idea/
+.vscode/
+/.phpunit.cache
+/public/build
+/public/css
+/public/js
+/.phpstorm.meta.php
+/_ide_helper*.php
