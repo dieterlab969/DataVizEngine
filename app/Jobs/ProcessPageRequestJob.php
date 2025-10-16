@@ -8,6 +8,7 @@ use Illuminate\Bus\Queueable;
 use App\Models\PageRequest;
 use App\Models\TableData;
 use App\Models\Visualization;
+use Illuminate\Process\Exceptions\ProcessFailedException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,7 @@ use Symfony\Component\DomCrawler\Crawler;
 use Illuminate\Support\Str;
 use Exception;
 use Illuminate\Foundation\Bus\Dispatchable;
+use Symfony\Component\Process\Process;
 
 class ProcessPageRequestJob implements ShouldQueue
 {
@@ -79,14 +81,20 @@ class ProcessPageRequestJob implements ShouldQueue
         $this->pageRequest->update(['status' => 'processing']);
 
         try {
-
             $client = new Client([
                 'timeout' => 100,
                 'headers' => ['User-Agent' => 'PageRequestBot/1.0(+https://yourdomain.com/)'],
             ]);
 
-            $response = $client->get($this->pageRequest->url);
-            $html = (string) $response->getBody();
+            try {
+                $response = $client->get($this->pageRequest->url);
+                $html = (string) $response->getBody();
+            } catch (Exception $e) {
+                \Log::error("HTML request failed for PageRequest ID" . $this->pageRequest->id. ': ' . $e->getMessage());
+                $this->pageRequest->update(['status' => 'failed']);
+                return;
+            }
+
             $crawler = new Crawler($html);
 
             $tables = $crawler->filter('#mw-content-text table.wikitable');
@@ -95,7 +103,9 @@ class ProcessPageRequestJob implements ShouldQueue
             }
 
             if ($tables->count() === 0) {
-                throw new Exception("No table found");
+                \Log::warning("No tables found for PageRequest ID {$this->pageRequest->id}");
+                $this->pageRequest->update(['status' => 'failed']);
+                return;
             }
 
             $this->pageRequest->tableData()->delete();
@@ -104,146 +114,210 @@ class ProcessPageRequestJob implements ShouldQueue
 
             $tableIndex = 0;
             $visualizationsCreated = 0;
+            $errors = [];
 
             foreach ($tables as $tableElement) {
                 $tableIndex++;
-                $tableCrawler = new Crawler($tableElement);
+                try {
+                    $tableCrawler = new Crawler($tableElement);
 
-                $headers = [];
+                    $headers = [];
+                    $headerCells = $tableCrawler->filter('tr')->first()->filter('th');
 
-                $headerCells = $tableCrawler->filter('tr')->first()->filter('th');
-
-                foreach ($headerCells as $cell) {
-                    $headers[] = trim($cell->textContent);
-                }
-
-                if (empty($headers)) {
-                    continue;
-                }
-
-                $rowsData = [];
-
-                $rows = $tableCrawler->filter('tr')->slice(1);
-
-                foreach ($rows as $rowElement) {
-                    $rowCrawler = new Crawler($rowElement);
-                    $cells = $rowCrawler->filter('td');
-
-                    $row = [];
-                    foreach ($cells as $i => $cellElement) {
-                        $cellText = trim($cellElement->textContent);
-                        $header = $headers[$i] ?? "Column{$i}";
-                        $row[$header] = $cellText;
+                    foreach ($headerCells as $cell) {
+                        $headers[] = trim($cell->textContent);
                     }
 
-                    if ($row) {
-                        $rowsData[] = $row;
-                    }
-                }
-
-                if (empty($rowsData)) {
-                    continue;
-                }
-
-                $numericColumn = null;
-                foreach($headers as $header) {
-                    $numericCount = 0;
-                    $totalCount = 0;
-                    foreach($rowsData as $row) {
-                        if(!isset($row[$header])) {
-                            continue;
-                        }
-                        $value = $row[$header];
-                        $number = $this->extractFirstNumber($value);
-                        if ($number !== null) {
-                            $numericCount++;
-                        }
-                        $totalCount++;
-                    }
-
-                    if ($totalCount > 0 && ($numericCount / $totalCount) >= 0.8) {
-                        $numericColumn = $header;
-                        break;
-                    }
-                }
-
-                if ($numericColumn === null) {
-                    continue;
-                }
-
-                $labelColumn = null;
-                foreach($headers as $header) {
-                    if ($header === $numericColumn) {
+                    if (empty($headers)) {
                         continue;
                     }
 
-                    $nonNumericCount = 0;
-                    $totalCount = 0;
-                    foreach($rowsData as $row) {
-                        if (!isset($row[$header])) {
+                    $rowsData = [];
+
+                    $rows = $tableCrawler->filter('tr')->slice(1);
+
+                    foreach ($rows as $rowElement) {
+                        $rowCrawler = new Crawler($rowElement);
+                        $cells = $rowCrawler->filter('td');
+
+                        $row = [];
+                        foreach ($cells as $i => $cellElement) {
+                            $cellText = trim($cellElement->textContent);
+                            $header = $headers[$i] ?? "Column{$i}";
+                            $row[$header] = $cellText;
+                        }
+
+                        if ($row) {
+                            $rowsData[] = $row;
+                        }
+                    }
+
+                    if (empty($rowsData)) {
+                        continue;
+                    }
+
+                    $numericColumn = null;
+                    foreach($headers as $header) {
+                        $numericCount = 0;
+                        $totalCount = 0;
+                        foreach($rowsData as $row) {
+                            if(!isset($row[$header])) {
+                                continue;
+                            }
+                            $value = $row[$header];
+                            $number = $this->extractFirstNumber($value);
+                            if ($number !== null) {
+                                $numericCount++;
+                            }
+                            $totalCount++;
+                        }
+
+                        if ($totalCount > 0 && ($numericCount / $totalCount) >= 0.8) {
+                            $numericColumn = $header;
+                            break;
+                        }
+                    }
+
+                    if ($numericColumn === null) {
+                        continue;
+                    }
+
+                    $labelColumn = null;
+                    foreach($headers as $header) {
+                        if ($header === $numericColumn) {
                             continue;
                         }
-                        $value = $row[$header];
-                        $number = $this->extractFirstNumber($value);
-                        if ($number === null) {
-                            $nonNumericCount++;
+
+                        $nonNumericCount = 0;
+                        $totalCount = 0;
+                        foreach($rowsData as $row) {
+                            if (!isset($row[$header])) {
+                                continue;
+                            }
+                            $value = $row[$header];
+                            $number = $this->extractFirstNumber($value);
+                            if ($number === null) {
+                                $nonNumericCount++;
+                            }
+                            $totalCount++;
                         }
-                        $totalCount++;
+
+                        if ($totalCount > 0 && ($nonNumericCount / $totalCount) >= 0.8) {
+                            $labelColumn = $header;
+                            break;
+                        }
                     }
 
-                    if ($totalCount > 0 && ($nonNumericCount / $totalCount) >= 0.8) {
-                        $labelColumn = $header;
-                        break;
+                    // Fallback: if no label column found, use row index as label
+                    if ($labelColumn === null) {
+                        $labelColumn = 'Index';
                     }
-                }
 
-                // Fallback: if no label column found, use row index as label
-                if ($labelColumn === null) {
-                    $labelColumn = 'Index';
-                }
+                    // Prepare arrays for visualization
+                    $labels = [];
+                    $values = [];
 
-                // Prepare arrays for visualization
-                $labels = [];
-                $values = [];
+                    // Save table data records
+                    foreach ($rowsData as $index => $row) {
+                        $labelValue = $labelColumn === 'Index' ? (string)($index + 1) : ($row[$labelColumn] ?? '');
+                        $numericValueRaw = $row[$numericColumn] ?? '';
+                        $numericValue = $this->extractFirstNumber($numericValueRaw);
 
-                // Save table data records
-                foreach ($rowsData as $index => $row) {
-                    $labelValue = $labelColumn === 'Index' ? (string)($index + 1) : ($row[$labelColumn] ?? '');
-                    $numericValueRaw = $row[$numericColumn] ?? '';
-                    $numericValue = $this->extractFirstNumber($numericValueRaw);
+                        $labels[] = $labelValue;
+                        $values[] = $numericValue !== null ? $numericValue: 0;
 
-                    $labels[] = $labelValue;
-                    $values[] = $numericValue !== null ? $numericValue: 0;
 
-                    // Save TableData record
-                    $this->pageRequest->tableData()->create([
+
+                        // Save TableData record
+                        $this->pageRequest->tableData()->create([
+                            'table_index' => $tableIndex,
+                            'row_index' => $index,
+                            'label' => $labelValue,
+                            'numeric_value' => $numericValue,
+                            'numeric_column' => $numericColumn,
+                            'label_column' => $labelColumn,
+                            'raw_label_value' => $labelValue,
+                            'raw_numeric_value' => $numericValue,
+                            'full_row_data' => json_encode($row),
+                        ]);
+                    }
+
+                    // Save Visualization record
+                    $this->pageRequest->visualizations()->create([
                         'table_index' => $tableIndex,
-                        'row_index' => $index,
-                        'label' => $labelValue,
-                        'numeric_value' => $numericValue,
                         'numeric_column' => $numericColumn,
-                        'raw_label_value' => $labelValue,
-                        'raw_numeric_value' => $numericValue,
-                        'full_row_data' => json_encode($row),
+                        'label_column' => $labelColumn,
+                        'labels' => json_encode($labels),
+                        'values' => json_encode($values),
+                        'title' => "Visualization for Table #{$tableIndex}",
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ]);
+
+                    $data = [
+                        'labels' => $labels,
+                        'values' => $values,
+                        'label_column' => $labelColumn,
+                        'numeric_column' => $numericColumn,
+                        'title' => "Visualization for Table #{$tableIndex}",
+                    ];
+
+                    // Save JSON data temporarily
+                    $jsonFilePath = storage_path("app/temp_data_table_{$tableIndex}.json}");
+                    if (false === file_put_contents($jsonFilePath, json_encode($data))) {
+                        throw new Exception("Unable to write to file temp_data_table_{$tableIndex}.json");
+                    }
+
+                    $outputImagePath = storage_path("app/public/visualization_table_{$tableIndex}.png");
+                    $outputDir = dirname($outputImagePath);
+
+                    if (!is_dir($outputDir) && !mkdir($outputDir, 0755, true) && !is_dir($outputDir)) {
+                      throw new Exception("Unable to create output directory $outputDir");
+                    }
+
+                    $pythonScriptPath = base_path('scripts/generate_visualization.py');
+
+                    $command = [
+                        'python3',
+                        $pythonScriptPath,
+                        '--input',
+                        $jsonFilePath,
+                        '--output',
+                        $outputImagePath,
+                        '--type',
+                        'auto',
+                        '--dpi',
+                        '150'
+                    ];
+
+                    $process = new Process($command);
+                    $process->setTimeout(60);
+
+                    try {
+                        $process->mustRun();
+                    } catch (ProcessFailedException $exception) {
+                        throw new Exception("Visualization generation failed for table #{$tableIndex}: {$exception->getMessage()}: {$exception->getTraceAsString()}");
+                    }
+
+                    $imageUrl = asset("storage/visualization_table_{$tableIndex}.png");
+                    $visualizationsCreated++;
+                } catch (Exception $tableException) {
+                    \Log::error('Error processing table #' . $tableIndex . '  for PageRequest ID ' . $this->pageRequest->id. ': ' . $tableException->getMessage());
+                    $errors[] = "Table #{$tableIndex}: " . $tableException->getMessage();
+                    // Continue processing next tables despite errors
                 }
-
-                // Save Visualization record
-                $this->pageRequest->visualizations()->create([
-                    'table_index' => $tableIndex,
-                    'numeric_column' => $numericColumn,
-                    'label_column' => $labelColumn,
-                    'labels' => json_encode($labels),
-                    'values' => json_encode($values),
-                    'title' => "Visualization for Table #{$tableIndex}",
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-
-                $visualizationsCreated++;
             }
 
-            $this->pageRequest->update(['status' => 'completed']);
+            if ($visualizationsCreated > 0) {
+                $this->pageRequest->update(['status' => 'completed']);
+            } else {
+                $this->pageRequest->update(['status' => 'failed']);
+            }
+
+            if (!empty($errors)) {
+                \Log::warning('Some tables failed to process for PageRequest ID ' . $this->pageRequest->id. ': ' . implode('; ', $errors));
+            }
+
         } catch (Exception $e) {
             \Log::error('PageRequestJob failed for PageRequest ID '.$this->pageRequest->id.': '.$e->getMessage());
             $this->pageRequest->update(['status' => 'failed']);
