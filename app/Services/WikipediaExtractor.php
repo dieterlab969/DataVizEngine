@@ -27,9 +27,15 @@ class WikipediaExtractor
         $table = $tables->first();
         
         $headers = [];
+        $hasTheadHeaders = false;
+        
         $table->filter('thead tr th, thead tr td')->each(function (Crawler $node) use (&$headers) {
             $headers[] = trim($node->text());
         });
+
+        if (!empty($headers)) {
+            $hasTheadHeaders = true;
+        }
 
         if (empty($headers)) {
             $table->filter('tbody tr')->first()->filter('th, td')->each(function (Crawler $node) use (&$headers) {
@@ -49,7 +55,7 @@ class WikipediaExtractor
             }
         });
 
-        if (count($rows) > 0 && count($rows[0]) === count($headers)) {
+        if (!$hasTheadHeaders && count($rows) > 0) {
             array_shift($rows);
         }
 
