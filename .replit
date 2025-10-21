@@ -23,7 +23,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve --host=0.0.0.0 --port=5000\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+args = "npx concurrently -c \"#93c5fd,#c4b5fd\" \"npm run dev -- --port 5000\" \"php artisan serve --host=0.0.0.0 --port=8000\" --names=vite,api --kill-others"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
@@ -34,8 +34,8 @@ localPort = 5000
 externalPort = 80
 
 [[ports]]
-localPort = 5173
-externalPort = 5173
+localPort = 8000
+externalPort = 8000
 
 [[ports]]
 localPort = 44981
