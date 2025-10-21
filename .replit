@@ -37,10 +37,6 @@ externalPort = 80
 localPort = 5173
 externalPort = 5173
 
-[[ports]]
-localPort = 42941
-externalPort = 3000
-
 [deployment]
 deploymentTarget = "vm"
 run = ["bash", "-c", "npx concurrently -c '#93c5fd,#c4b5fd' 'php artisan serve --host=0.0.0.0 --port=5000' 'php artisan queue:listen --tries=3' --names=server,queue --kill-others"]

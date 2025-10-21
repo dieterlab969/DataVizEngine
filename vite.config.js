@@ -1,13 +1,10 @@
 import { defineConfig } from 'vite';
-import laravel from 'laravel-vite-plugin';
+import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
     plugins: [
-        laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js'],
-            refresh: true,
-        }),
+        react(),
         tailwindcss(),
     ],
     server: {
@@ -17,6 +14,12 @@ export default defineConfig({
         hmr: {
             clientPort: 443,
             host: process.env.REPL_SLUG ? `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'localhost',
+        },
+        proxy: {
+            '/api': {
+                target: 'http://localhost:5000',
+                changeOrigin: true,
+            },
         },
     },
 });
