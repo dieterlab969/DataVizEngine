@@ -1,243 +1,409 @@
+# DataVizEngine - Wikipedia Table Visualizer
 
-# DataVizEngine
-
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![PHP](https://img.shields.io/badge/PHP-8.1+-green.svg)
-![Laravel](https://img.shields.io/badge/Laravel-10.x-red.svg)
-![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
-![Seaborn](https://img.shields.io/badge/Seaborn-0.12.x-orange.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![PHP](https://img.shields.io/badge/PHP-8.2+-green.svg)
+![Laravel](https://img.shields.io/badge/Laravel-12.x-red.svg)
+![React](https://img.shields.io/badge/React-18.x-61dafb.svg)
+![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## 🚀 Bridging Worlds: Web Application Meets Data Science
+## 🚀 Overview
 
-**DataVizEngine** is a groundbreaking integration platform that seamlessly connects Laravel's robust web framework capabilities with Python's scientific computing ecosystem. This project represents a paradigm shift in how web applications can harness the power of advanced data visualization without compromising on performance or developer experience.
+**DataVizEngine** is a modern web application that extracts data from Wikipedia tables and generates beautiful visualizations using Python's powerful data science libraries. The platform seamlessly bridges web technologies with scientific computing to deliver professional-quality charts from any Wikipedia table.
 
-<p align="center">
-  <img src="docs/architecture-diagram.png" alt="DataVizEngine Architecture" width="720">
-</p>
+**Built with:**
+- **React 18** + TypeScript for a responsive, modern UI
+- **Laravel 12** as a robust RESTful API backend
+- **Python 3.11** with Matplotlib & Seaborn for publication-quality visualizations
 
-### 🌟 Key Innovations
+---
 
-- **Cross-Language Synergy**: Bridged the gap between PHP and Python ecosystems
-- **Real-Time Processing**: Asynchronous processing of data visualization requests
-- **Dynamic Rendering**: On-demand generation of publication-quality visualizations
-- **Developer-Centric Design**: Intuitive APIs that abstract away complexity
+## 📐 Architecture
+
+### System Design
+
+This application uses a **modern SPA (Single Page Application)** architecture with separated frontend and backend:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         User Browser                            │
+│                              ↓                                   │
+│                    Nginx (Port 80/443)                          │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+         ┌────────────────────┴────────────────────┐
+         ↓                                         ↓
+┌──────────────────────┐                  ┌──────────────────────┐
+│  React Frontend      │                  │  Laravel API         │
+│  (Vite Server)       │ ← Proxy /api → │  Backend             │
+│  Port: 5000/3000     │                  │  Port: 8000          │
+│                      │                  │                      │
+│  - React 18          │                  │  - REST API          │
+│  - TypeScript        │                  │  - WikipediaExtractor│
+│  - Tailwind CSS      │                  │  - Guzzle HTTP       │
+│  - Vite 7            │                  │  - DomCrawler        │
+└──────────────────────┘                  └──────────────────────┘
+                                                   ↓
+                         ┌────────────────────────┴────────────┐
+                         ↓                                     ↓
+              ┌────────────────────┐              ┌────────────────────┐
+              │ Python Scripts     │              │ File Storage       │
+              │ (Visualization)    │              │ (Generated Charts) │
+              │                    │              │                    │
+              │ - Matplotlib       │              │ storage/app/public/│
+              │ - Seaborn          │              │ viz_*.png          │
+              │ - Pandas, NumPy    │              │                    │
+              └────────────────────┘              └────────────────────┘
+```
+
+### Data Flow
+
+1. **User Input** → User enters Wikipedia URL in React frontend
+2. **API Request** → React sends POST to `/api/extract-table`
+3. **Web Scraping** → Laravel fetches Wikipedia page using Guzzle
+4. **HTML Parsing** → DomCrawler extracts table data
+5. **Smart Analysis** → System identifies numeric columns (70% threshold)
+6. **Preview** → Frontend displays first 10 rows for user review
+7. **Selection** → User selects numeric column and chart type
+8. **Visualization Request** → React sends POST to `/api/generate-visualization`
+9. **Python Execution** → Laravel calls Python script with data
+10. **Chart Generation** → Python creates PNG using Matplotlib/Seaborn
+11. **Storage** → Image saved to `storage/app/public/`
+12. **Response** → Image URL returned to frontend
+13. **Display** → React renders the visualization
+
+### How API Communication Works
+
+When the React app calls an API endpoint like `fetch('/api/extract-table')`:
+
+1. **Vite Proxy Intercepts**: The Vite dev server detects the `/api` prefix
+2. **Request Forwarding**: Vite forwards the request to `http://localhost:8000` (configured in `vite.config.js`)
+3. **Laravel Processing**: Laravel API receives and processes the request
+4. **JSON Response**: Laravel returns data as JSON
+5. **Frontend Update**: React receives the response and updates the UI
+
+**Configuration Location:** `vite.config.js` (lines 29-38)
+```javascript
+proxy: {
+    '/api': {
+        target: 'http://localhost:8000',  // Laravel backend
+        changeOrigin: true,
+    },
+    '/storage': {
+        target: 'http://localhost:8000',  // For images
+        changeOrigin: true,
+    },
+}
+```
+
+---
 
 ## 🔧 Technology Stack
 
-The project leverages cutting-edge technologies to deliver a seamless experience:
+### Frontend
+- **React 18** - Modern UI library with hooks
+- **TypeScript** - Type-safe JavaScript
+- **Vite 7** - Fast build tool with HMR (Hot Module Replacement)
+- **Tailwind CSS 4.0** - Utility-first CSS framework
+- **Axios** - HTTP client for API requests
 
-- **Frontend**: Laravel Blade + Alpine.js + Tailwind CSS
-- **Backend**: Laravel 10+ Framework
-- **Data Processing**: Python 3.9+ with NumPy and Pandas
-- **Visualization**: Seaborn with Matplotlib
-- **Integration**: Custom PHP-Python bridge with process management
-- **Storage**: MySQL + filesystem-based visualization cache
+### Backend
+- **Laravel 12** - PHP framework for RESTful API
+- **PHP 8.2+** - Modern PHP with performance improvements
+- **Guzzle HTTP** - HTTP client for Wikipedia requests
+- **Symfony DomCrawler** - HTML parsing and table extraction
+- **Process Facade** - Execute Python scripts from Laravel
 
-## 📊 Visualization Capabilities
+### Data Visualization
+- **Python 3.11** - Modern Python runtime
+- **Matplotlib** - Core plotting library
+- **Seaborn** - Statistical data visualization
+- **Pandas** - Data manipulation and analysis
+- **NumPy** - Numerical computing
 
-DataVizEngine supports a wide range of visualization types through Seaborn:
+### Database
+- **SQLite** (development) - Lightweight embedded database
+- **MySQL/PostgreSQL** (production) - Scalable relational databases
 
-- Statistical plots (boxplots, violinplots)
-- Distribution plots (histograms, KDEs)
-- Relational plots (scatterplots, lineplots)
-- Categorical plots (barplots, countplots)
-- Matrix plots (heatmaps, clustermap)
-- Regression plots (regplot, residplot)
+### Infrastructure
+- **Nginx** - Reverse proxy and web server
+- **PM2** - Process manager for Node.js applications
+- **Concurrently** - Run multiple servers simultaneously
+
+---
+
+## 🌟 Key Features
+
+### 1. Wikipedia Data Extraction
+- Fetch and parse any Wikipedia page with tables
+- Intelligent table detection and extraction
+- Support for complex HTML table structures
+- Handles tables with or without `<thead>` sections
+
+### 2. Smart Column Analysis
+- Automatic numeric column detection (70% threshold)
+- Type inference for mixed data columns
+- Preserves original data for accurate visualization
+- Dropdown selector for numeric columns only
+
+### 3. Multiple Visualization Types
+- **Bar Charts** - Compare categorical data
+- **Line Charts** - Show trends over time
+- **Scatter Plots** - Explore relationships between variables
+- Professional styling with Seaborn themes
+
+### 4. Real-time Preview
+- Display first 10 rows of extracted table
+- Review data before generating charts
+- Responsive table design with Tailwind CSS
+
+### 5. Professional Output
+- High-resolution PNG exports (150 DPI)
+- Publication-quality visualizations
+- Automatic chart sizing and formatting
+- Clean, modern aesthetic
+
+---
 
 ## 💻 Quick Start
 
 ### Prerequisites
 
-- PHP 8.1+
-- Composer
-- Python 3.9+
-- Node.js and NPM
+Ensure you have the following installed:
 
-### Installation
+- **PHP 8.2+** with Composer
+- **Python 3.11+** with pip
+- **Node.js 20+** with npm
+
+### Installation (Development)
 
 ```bash
-# Clone the repository
-git clone -b main https://github.com/dieterlab969/DataVizEngine.git
+# 1. Clone the repository
+git clone https://github.com/your-username/DataVizEngine.git
 cd DataVizEngine
 
-# Install PHP dependencies
+# 2. Install PHP dependencies
 composer install
 
-# Install Node.js dependencies
+# 3. Install Node.js dependencies
 npm install
 
-# Set up environment
+# 4. Install Python dependencies
+pip install -r requirements.txt
+
+# 5. Set up environment
 cp .env.example .env
 php artisan key:generate
 
-# Configure your database in .env
-# ...
-
-# Run migrations
+# 6. Configure database (SQLite for development)
+touch database/database.sqlite
 php artisan migrate
 
-# Set up Python environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# 7. Create storage symlink
+php artisan storage:link
 
-# Build assets
-npm run build
+# 8. Start development servers (both frontend and backend)
+npm run dev
 
-# Start the development server
-php artisan serve
+# The application will be available at http://localhost:5000
+# - Frontend: http://localhost:5000 (Vite dev server)
+# - Backend API: http://localhost:8000 (Laravel)
 ```
 
-## 🔍 Usage Examples
+### Development Workflow Command
 
-### Creating a Basic Visualization
+The development environment runs **two concurrent servers**:
 
-```php
-// In your controller
-public function generateVisualization(Request $request)
+```bash
+npx concurrently -c "#93c5fd,#c4b5fd" \
+  "npm run dev -- --port 5000" \
+  "php artisan serve --host=0.0.0.0 --port=8000" \
+  --names=vite,api --kill-others
+```
+
+This command:
+- Starts Vite dev server on port **5000** (frontend with HMR)
+- Starts Laravel API on port **8000** (backend)
+- Uses color-coded logs for easy debugging
+- Kills all processes if one fails
+
+---
+
+## 📚 API Documentation
+
+### Endpoints
+
+#### 1. Extract Table Data
+
+**Endpoint:** `POST /api/extract-table`
+
+**Request Body:**
+```json
 {
-    $data = $request->validate([
-        'dataset' => 'required|array',
-        'type' => 'required|in:bar,scatter,line,heatmap,box',
-        'x_column' => 'required|string',
-        'y_column' => 'required|string',
-        'title' => 'nullable|string',
-    ]);
-    
-    $vizService = new VisualizationService();
-    $result = $vizService->generateVisualization($data);
-    
-    return response()->json([
-        'success' => true,
-        'visualization_url' => asset('visualizations/' . $result['file']),
-        'metadata' => $result['metadata'] ?? null,
-    ]);
+  "url": "https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"
 }
 ```
 
-### Python Visualization Component
-
-```python
-def create_visualization(data, type, x_column, y_column, title=None):
-    """
-    Create a visualization based on provided parameters
-    """
-    df = pd.DataFrame(data['dataset'])
-    
-    plt.figure(figsize=(10, 6))
-    sns.set_theme(style="whitegrid")
-    
-    if type == 'bar':
-        ax = sns.barplot(x=x_column, y=y_column, data=df)
-    elif type == 'scatter':
-        ax = sns.scatterplot(x=x_column, y=y_column, data=df)
-    # Additional plot types...
-    
-    if title:
-        plt.title(title)
-        
-    filename = f"viz_{uuid.uuid4()}.png"
-    filepath = os.path.join(OUTPUT_DIR, filename)
-    plt.savefig(filepath, bbox_inches='tight', dpi=300)
-    
-    return {
-        "status": "success",
-        "file": filename,
-        "metadata": {
-            "dimensions": plt.gcf().get_size_inches(),
-            "data_points": len(df),
-            "columns_used": [x_column, y_column]
-        }
-    }
-```
-
-## 🛠️ Advanced Features
-
-### 1. Intelligent Caching System
-
-DataVizEngine implements a smart caching system that:
-- Stores generated visualizations with their parameters
-- Automatically regenerates when underlying data changes
-- Efficiently serves cached visualizations for identical parameters
-
-```php
-// Example of the cache-aware visualization service
-public function getOrGenerateVisualization(array $params)
+**Response:**
+```json
 {
-    $cacheKey = $this->generateCacheKey($params);
-    
-    if ($this->visualizationCache->has($cacheKey)) {
-        return $this->visualizationCache->get($cacheKey);
-    }
-    
-    $result = $this->generateVisualization($params);
-    $this->visualizationCache->put($cacheKey, $result, now()->addDays(7));
-    
-    return $result;
+  "headers": ["Country", "Population", "Area"],
+  "rows": [
+    ["China", "1411778724", "9596961"],
+    ["India", "1393409038", "3287263"]
+  ],
+  "numericColumns": ["Population", "Area"]
 }
 ```
 
-### 2. Asynchronous Processing
+**Validation:**
+- `url` - Required, must be a valid URL, must start with `https://en.wikipedia.org/wiki/`
 
-For complex visualizations, DataVizEngine leverages Laravel's queue system:
+---
 
-```php
-// Dispatch a job to generate visualization asynchronously
-VisualizationJob::dispatch($data)
-    ->onQueue('visualizations');
+#### 2. Generate Visualization
+
+**Endpoint:** `POST /api/generate-visualization`
+
+**Request Body:**
+```json
+{
+  "tableData": {
+    "headers": ["Country", "Population"],
+    "rows": [["China", "1411778724"], ["India", "1393409038"]]
+  },
+  "selectedColumns": ["Population"],
+  "chartType": "bar"
+}
 ```
 
-### 3. Interactive Visualizations
-
-Beyond static images, DataVizEngine can generate interactive visualizations using Plotly:
-
-```python
-def create_interactive_visualization(data, type):
-    """Generate an interactive visualization using Plotly"""
-    df = pd.DataFrame(data['dataset'])
-    
-    if type == 'scatter':
-        fig = px.scatter(df, x=data['x_column'], y=data['y_column'])
-    # Additional plot types...
-    
-    html_file = f"interactive_{uuid.uuid4()}.html"
-    filepath = os.path.join(OUTPUT_DIR, html_file)
-    fig.write_html(filepath)
-    
-    return {
-        "status": "success",
-        "file": html_file,
-        "type": "interactive"
-    }
+**Response:**
+```json
+{
+  "id": 1,
+  "imageUrl": "/storage/viz_abc123def456.png",
+  "chartType": "bar"
+}
 ```
 
-## 🌈 Future Roadmap
+**Chart Types:**
+- `bar` - Bar chart for categorical comparisons
+- `line` - Line chart for trends
+- `scatter` - Scatter plot for relationships
 
-The DataVizEngine is designed with extensibility in mind:
+---
 
-- **Machine Learning Integration**: Predictive analytics and model visualization
-- **Real-time Data Processing**: WebSocket-based live updating visualizations
-- **Data Source Connectors**: Integration with various data sources (APIs, databases)
-- **Customizable Themes**: Advanced styling options for visualizations
-- **Export Capabilities**: PDF reports and presentation-ready exports
+## 🎯 Usage Example
 
-## 📚 Documentation
+### Step-by-Step Guide
 
-For comprehensive documentation, please visit:
-- [Installation Guide](docs/installation.md)
-- [API Reference](docs/api.md)
-- [Visualization Types](docs/visualizations.md)
-- [Advanced Configuration](docs/configuration.md)
-- [Examples & Tutorials](docs/examples.md)
+1. **Open the Application**
+   - Navigate to `http://localhost:5000` in your browser
 
-## 🔄 Development Workflow
+2. **Enter Wikipedia URL**
+   ```
+   https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)
+   ```
+
+3. **Click "Extract Table Data"**
+   - The system fetches and parses the Wikipedia page
+   - First 10 rows are displayed for preview
+   - Numeric columns are automatically detected
+
+4. **Select Visualization Options**
+   - Choose a numeric column from the dropdown (e.g., "Population")
+   - Select chart type (Bar, Line, or Scatter)
+
+5. **Click "Generate Visualization"**
+   - Python generates a professional chart
+   - Visualization appears below the form
+
+6. **View Your Chart**
+   - High-quality PNG image with proper labels
+   - Download or share as needed
+
+---
+
+## 📂 Project Structure
 
 ```
-1. Define data structure ➡️ 2. Configure visualization ➡️ 3. Process in Python
-       ⬆️                                                           ⬇️
-6. Analyze & iterate ⬅️ 5. Display in Laravel app ⬅️ 4. Return results
+DataVizEngine/
+├── app/
+│   ├── Http/
+│   │   └── Controllers/
+│   │       └── Api/
+│   │           └── WikipediaController.php    # API endpoints
+│   ├── Services/
+│   │   └── WikipediaExtractor.php             # Web scraping service
+│   └── Models/                                # Database models
+│
+├── config/
+│   ├── cors.php                               # CORS configuration
+│   └── filesystems.php                        # Storage configuration
+│
+├── database/
+│   ├── migrations/                            # Database migrations
+│   └── database.sqlite                        # SQLite database
+│
+├── public/
+│   └── storage/                               # Symlink to storage/app/public
+│
+├── resources/
+│   ├── js/
+│   │   ├── App.tsx                            # Main React component
+│   │   ├── main.tsx                           # React entry point
+│   │   └── bootstrap.js                       # Axios configuration
+│   └── css/
+│       └── app.css                            # Tailwind CSS
+│
+├── routes/
+│   ├── api.php                                # API routes
+│   └── web.php                                # Web routes
+│
+├── scripts/
+│   └── generate_visualization.py              # Python visualization script
+│
+├── storage/
+│   ├── app/
+│   │   └── public/                            # Generated visualizations
+│   └── logs/
+│       └── laravel.log                        # Application logs
+│
+├── .env                                       # Environment configuration
+├── .env.example                               # Environment template
+├── composer.json                              # PHP dependencies
+├── package.json                               # Node.js dependencies
+├── requirements.txt                           # Python dependencies
+├── vite.config.js                             # Vite configuration
+├── tsconfig.json                              # TypeScript configuration
+├── tailwind.config.js                         # Tailwind CSS configuration
+└── index.html                                 # Vite HTML entry point
 ```
+
+---
+
+## 🧪 Testing
+
+### Manual Testing
+
+```bash
+# 1. Test Backend API Directly
+curl -X POST http://localhost:8000/api/extract-table \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"}'
+
+# 2. Test Frontend
+# Open browser to http://localhost:5000
+
+# 3. Check Logs
+tail -f storage/logs/laravel.log
+```
+
+### Example Wikipedia URLs for Testing
+
+- **Countries by Population**: `https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)`
+- **GDP by Country**: `https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)`
+- **Olympic Medal Count**: `https://en.wikipedia.org/wiki/All-time_Olympic_Games_medal_table`
 
 ---
 
@@ -797,9 +963,35 @@ npm run build && pm2 restart dataviz-frontend
 
 ---
 
+## 🔄 Development Workflow
+
+```
+1. User enters URL → 2. Extract table → 3. Analyze columns → 4. Preview data
+         ↓                                                           ↑
+8. Display chart ← 7. Return image ← 6. Generate PNG ← 5. Select options
+```
+
+**For Developers:**
+```
+1. Edit React component (App.tsx)
+2. Vite HMR updates browser automatically
+3. No manual refresh needed
+4. API changes require Laravel server restart
+```
+
+---
+
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please follow these guidelines:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
 
 ## 📝 License
 
@@ -807,5 +999,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-<p align="center">Built with ❤️ by [Dieter R.]</p>
+## 🙏 Acknowledgments
+
+- **Laravel** - Elegant PHP framework
+- **React** - Powerful UI library
+- **Vite** - Lightning-fast build tool
+- **Matplotlib & Seaborn** - Professional visualization libraries
+- **Wikipedia** - Open knowledge source
+
+---
+
+<p align="center">Built with ❤️ using React, Laravel, and Python</p>
 <p align="center">© 2025 DataVizEngine</p>
