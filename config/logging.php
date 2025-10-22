@@ -127,6 +127,13 @@ return [
             'path' => storage_path('logs/laravel.log'),
         ],
 
+        'debug' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/debug.log'),
+            'level' => 'debug',
+            'days' => 7 // keep log for 7 days
+        ]
+
     ],
 
 ];

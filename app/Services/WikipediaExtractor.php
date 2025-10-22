@@ -14,7 +14,7 @@ class WikipediaExtractor
                 'User-Agent' => 'DataVizEngine/1.0 (Educational Project; Replit)',
             ])
             ->get($url);
-        
+
         if (!$response->successful()) {
             throw new \Exception('Failed to fetch Wikipedia page');
         }
@@ -23,16 +23,16 @@ class WikipediaExtractor
         $crawler = new Crawler($html);
 
         $tables = $crawler->filter('table.wikitable');
-        
+
         if ($tables->count() === 0) {
             throw new \Exception('No tables found on this Wikipedia page');
         }
 
         $table = $tables->first();
-        
+
         $headers = [];
         $hasTheadHeaders = false;
-        
+
         $table->filter('thead tr th, thead tr td')->each(function (Crawler $node) use (&$headers) {
             $headers[] = trim($node->text());
         });
@@ -53,7 +53,7 @@ class WikipediaExtractor
             $row->filter('th, td')->each(function (Crawler $cell) use (&$cells) {
                 $cells[] = $this->cleanText($cell->text());
             });
-            
+
             if (!empty($cells) && count($cells) > 0) {
                 $rows[] = $cells;
             }
@@ -74,6 +74,12 @@ class WikipediaExtractor
 
     private function cleanText(string $text): string
     {
+        $text = preg_replace([
+            '/\.mw-parser-output\s*\{[^}]*\}/',  // Remove entire CSS block
+            '/class="[^"]*"/',  // Remove class attributes
+            '/\.[a-zA-Z-]+\s*\{[^}]*\}/',  // Remove additional CSS blocks
+            '/\s*\.[a-zA-Z-]+\s*/', // Remove additional class references
+        ], '', $text);
         $text = preg_replace('/\[\d+\]/', '', $text);
         $text = preg_replace('/\s+/', ' ', $text);
         return trim($text);
@@ -112,7 +118,7 @@ class WikipediaExtractor
         }
 
         $cleaned = preg_replace('/[^0-9.\-]/', '', $value);
-        
+
         if (is_numeric($cleaned) && $cleaned !== '') {
             return (float) $cleaned;
         }
