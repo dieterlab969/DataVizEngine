@@ -227,6 +227,53 @@ This command:
 - Uses color-coded logs for easy debugging
 - Kills all processes if one fails
 
+### ⚠️ Important: Always Verify Ports After Starting
+
+After running the servers, **check the console output** to confirm they're on the correct ports:
+
+```bash
+# ✅ Expected console output:
+# [vite] Local:   http://localhost:5000/    ← Frontend on port 5000
+# [api]  Server running on [http://0.0.0.0:8000]  ← Backend on port 8000
+
+# ❌ If you see different ports (5001, 8001, etc.), you have a PORT CONFLICT!
+# Example of port conflict:
+# [vite] Local:   http://localhost:5001/    ← Wrong! Should be 5000
+# [api]  Server running on [http://0.0.0.0:8001]  ← Wrong! Should be 8000
+```
+
+**What happens with port conflicts:**
+- Vite proxy is configured to forward `/api` → `http://localhost:8000`
+- If Laravel starts on port 8001, the proxy fails
+- Clicking "Extract Table Data" shows: **"Failed to fetch Wikipedia"**
+
+**Quick Fix for Port Conflicts:**
+
+*For Linux/macOS:*
+```bash
+# 1. Stop the workflow/servers
+# 2. Kill processes occupying the ports
+kill -9 $(lsof -t -i:5000) 2>/dev/null
+kill -9 $(lsof -t -i:8000) 2>/dev/null
+
+# 3. Restart the workflow
+# Now both servers should be on correct ports (5000 and 8000)
+```
+
+*For Windows (PowerShell):*
+```powershell
+# 1. Stop the workflow/servers
+# 2. Find and kill processes on the ports
+Get-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess | Stop-Process -Force
+Get-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess | Stop-Process -Force
+
+# 3. Restart the workflow
+```
+
+**Note:** The `lsof` command may not be available on all systems. If you get "command not found", use your system's task manager or process viewer to manually kill Node.js and PHP processes.
+
+**For detailed troubleshooting**, see the "Failed to Fetch Wikipedia" section in the Troubleshooting Guide below.
+
 ---
 
 ## 📚 API Documentation
@@ -1196,6 +1243,149 @@ curl -X POST http://your-domain.com/api/extract-table \
 ---
 
 ### 🐛 Troubleshooting Guide
+
+---
+
+#### ❌ "Failed to Fetch Wikipedia" Error (Port Conflicts)
+
+**Symptoms:**
+- Click "Extract Table Data" button → Error: "Failed to fetch Wikipedia" or network error
+- Frontend loads but API requests fail
+- Console shows: `GET http://localhost:5000/api/extract-table net::ERR_CONNECTION_REFUSED`
+
+**Root Cause:** Port conflicts cause servers to start on different ports than expected.
+
+When you run `npm run dev`, the workflow starts:
+- **Frontend (Vite):** Expected on port 5000 → Actually on port **5001** (if 5000 is occupied)
+- **Backend (Laravel):** Expected on port 8000 → Actually on port **8001** (if 8000 is occupied)
+
+The Vite proxy is hardcoded to forward `/api` requests to `http://localhost:8000`. If Laravel starts on port 8001, the proxy fails.
+
+**Diagnosis: Check Actual Ports**
+
+```bash
+# Method 1: Check server logs
+# Look for startup messages in the workflow console:
+# - Vite:    "Local: http://localhost:5001/"  ← Actual frontend port
+# - Laravel: "Server running on [http://0.0.0.0:8001]"  ← Actual backend port
+
+# Method 2: Check what's using ports 5000 and 8000
+lsof -i :5000
+lsof -i :8000
+
+# Method 3: Check all Node.js and PHP processes
+ps aux | grep -E "(node|php)" | grep -v grep
+```
+
+**Solutions (Choose One):**
+
+**✅ Solution 1: Kill Conflicting Processes (Recommended)**
+
+*Linux/macOS:*
+```bash
+# Stop the workflow first, then kill processes on ports 5000 and 8000
+kill -9 $(lsof -t -i:5000)
+kill -9 $(lsof -t -i:8000)
+
+# Restart the workflow
+# Frontend should now be on port 5000, backend on port 8000
+```
+
+*Windows (PowerShell):*
+```powershell
+# Find and kill processes occupying the ports
+Get-Process -Id (Get-NetTCPConnection -LocalPort 5000).OwningProcess | Stop-Process -Force
+Get-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess | Stop-Process -Force
+
+# Restart the workflow
+```
+
+*Alternative (All platforms):*
+```bash
+# Find process IDs manually
+lsof -i :5000  # Shows PID in second column
+lsof -i :8000  # Shows PID in second column
+
+# Kill specific PIDs
+kill -9 <PID>
+```
+
+**✅ Solution 2: Force Strict Ports (Prevent Auto-Increment)**
+
+Edit `vite.config.js` to fail fast if port is occupied:
+
+```javascript
+server: {
+    host: "0.0.0.0",
+    port: 5000,
+    strictPort: true,  // ← Change from false to true
+    // ... rest of config
+}
+```
+
+Now Vite will show an error instead of auto-incrementing:
+```
+Error: Port 5000 is in use, but strictPort is enabled
+```
+
+This forces you to fix the port conflict before proceeding.
+
+**✅ Solution 3: Update Proxy to Match Actual Ports**
+
+If backend is running on port 8001, update [`vite.config.js`](vite.config.js#L29-L38) (lines 29-38):
+
+```javascript
+proxy: {
+    "/api": {
+        target: "http://localhost:8001",  // ← Change to actual backend port
+        changeOrigin: true,
+    },
+    "/storage": {
+        target: "http://localhost:8001",  // ← Change to actual backend port
+        changeOrigin: true,
+    },
+}
+```
+
+**⚠️ Important:** This is a temporary fix. Reset to 8000 after fixing the port conflict.
+
+**✅ Solution 4: Use Environment Variables (Advanced)**
+
+Create `.env.local` in project root:
+
+```bash
+# Frontend port
+VITE_PORT=5000
+
+# Backend API URL
+VITE_API_URL=http://localhost:8000
+```
+
+Update `vite.config.js` to use environment variables:
+
+```javascript
+export default defineConfig({
+    server: {
+        port: parseInt(process.env.VITE_PORT) || 5000,
+        strictPort: true,
+        proxy: {
+            "/api": {
+                target: process.env.VITE_API_URL || "http://localhost:8000",
+                changeOrigin: true,
+            },
+        },
+    },
+});
+```
+
+**Prevention Tips:**
+
+1. **Always stop the workflow before closing Replit** to cleanly shut down servers
+2. **Use `ps aux | grep node` periodically** to check for zombie processes
+3. **Restart the Repl** if port conflicts persist (kills all processes)
+4. **Check workflow status** in the Replit sidebar before starting work
+
+---
 
 #### ❌ 400 Bad Request Error
 
