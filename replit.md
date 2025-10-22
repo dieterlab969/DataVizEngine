@@ -131,16 +131,16 @@ npx concurrently -c "#93c5fd,#c4b5fd" \
 
 **Quick Test:**
 1. Go to http://localhost:5000
-2. Enter Wikipedia URL: `https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)`
+2. Enter Wikipedia URL: `https://en.wikipedia.org/wiki/Women's_high_jump_world_record_progression`
 3. Click "Extract Table Data"
-4. Select numeric column and chart type
+4. Select numeric column (Mark) and chart type
 5. Click "Generate Visualization"
 
 **API Testing:**
 ```bash
 curl -X POST http://localhost:8000/api/extract-table \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"}'
+  -d '{"url":"https://en.wikipedia.org/wiki/Women'\''s_high_jump_world_record_progression"}'
 ```
 
 ---

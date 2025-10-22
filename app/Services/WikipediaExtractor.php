@@ -9,7 +9,11 @@ class WikipediaExtractor
 {
     public function extractTable(string $url): array
     {
-        $response = Http::timeout(30)->get($url);
+        $response = Http::timeout(30)
+            ->withHeaders([
+                'User-Agent' => 'DataVizEngine/1.0 (Educational Project; Replit)',
+            ])
+            ->get($url);
         
         if (!$response->successful()) {
             throw new \Exception('Failed to fetch Wikipedia page');

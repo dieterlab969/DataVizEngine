@@ -302,7 +302,7 @@ This command:
 
 2. **Enter Wikipedia URL**
    ```
-   https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)
+   https://en.wikipedia.org/wiki/Women's_high_jump_world_record_progression
    ```
 
 3. **Click "Extract Table Data"**
@@ -311,7 +311,7 @@ This command:
    - Numeric columns are automatically detected
 
 4. **Select Visualization Options**
-   - Choose a numeric column from the dropdown (e.g., "Population")
+   - Choose a numeric column from the dropdown (e.g., "Mark")
    - Select chart type (Bar, Line, or Scatter)
 
 5. **Click "Generate Visualization"**
@@ -414,17 +414,17 @@ Step 1: Access Application
 ✅ Expected: Wikipedia Table Visualizer page loads with input form
 
 Step 2: Extract Table Data
-→ Enter URL: https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)
+→ Enter URL: https://en.wikipedia.org/wiki/Women's_high_jump_world_record_progression
 → Click "Extract Table Data" button
 ✅ Expected: Table preview appears showing first 10 rows
-✅ Expected: Dropdown shows numeric columns (Population, Area, etc.)
+✅ Expected: Dropdown shows numeric columns (Mark, Date)
 
 Step 3: Generate Visualization
-→ Select a numeric column from dropdown (e.g., "Population")
+→ Select a numeric column from dropdown (e.g., "Mark")
 → Choose chart type (Bar, Line, or Scatter)
 → Click "Generate Visualization" button
 ✅ Expected: Chart image appears below with proper labels
-✅ Expected: High-quality PNG visualization with country names and values
+✅ Expected: High-quality PNG visualization with athlete names and record heights
 
 Step 4: Error Handling
 → Clear the URL field and click "Extract Table Data"
@@ -437,7 +437,7 @@ Step 4: Error Handling
 
 | Test Case | Input | Expected Output | Pass/Fail |
 |-----------|-------|-----------------|-----------|
-| Valid Wikipedia URL | `https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)` | Table data with headers and rows | ✅ |
+| Valid Wikipedia URL | `https://en.wikipedia.org/wiki/Women's_high_jump_world_record_progression` | Table data with headers and rows | ✅ |
 | Empty URL | `` (empty string) | Validation error message | ✅ |
 | Non-Wikipedia URL | `https://google.com` | "Invalid URL" error | ✅ |
 | Wikipedia page without tables | `https://en.wikipedia.org/wiki/Wikipedia` | "No table found" error | ✅ |
@@ -453,16 +453,16 @@ Step 4: Error Handling
 # Test 1: Valid Wikipedia URL
 curl -X POST http://localhost:8000/api/extract-table \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"}'
+  -d '{"url":"https://en.wikipedia.org/wiki/Women'\''s_high_jump_world_record_progression"}'
 
 # ✅ Expected Response (200 OK):
 # {
-#   "headers": ["Country", "Population", "Date", "% of world", "Source"],
+#   "headers": ["Mark", "Athlete", "Date", "Venue"],
 #   "rows": [
-#     ["China", "1411750000", "2 Jul 2023", "17.5%", "National estimate"],
-#     ["India", "1392329000", "2 Jul 2023", "17.3%", "Official projection"]
+#     ["1.482 m (4 ft 10+1⁄4 in)", " Eleanor Egg (USA)", "13 February 1926", "Newark"],
+#     ["1.517 m (4 ft 11+1⁄2 in)", " Mildred Wiley (USA)", "16 February 1928", "Boston"]
 #   ],
-#   "numericColumns": ["Population"]
+#   "numericColumns": ["Mark", "Date"]
 # }
 
 # Test 2: Missing URL (should fail)
@@ -531,7 +531,7 @@ curl -X POST http://localhost:8000/api/generate-visualization \
 
 | Category | URL | Expected Numeric Columns |
 |----------|-----|-------------------------|
-| **Population** | `https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)` | Population |
+| **World Records** | `https://en.wikipedia.org/wiki/Women's_high_jump_world_record_progression` | Mark, Date |
 | **GDP** | `https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)` | GDP (Millions USD), Per capita |
 | **Olympics** | `https://en.wikipedia.org/wiki/All-time_Olympic_Games_medal_table` | Gold, Silver, Bronze, Total |
 | **Area** | `https://en.wikipedia.org/wiki/List_of_countries_by_area` | Total area (km²) |
@@ -1160,7 +1160,7 @@ curl http://localhost:8000/up
 # Test table extraction API
 curl -X POST http://localhost:8000/api/extract-table \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"}'
+  -d '{"url":"https://en.wikipedia.org/wiki/Women'\''s_high_jump_world_record_progression"}'
 
 # You should get JSON response with headers, rows, and numericColumns
 ```
@@ -1183,7 +1183,7 @@ curl http://your-domain.com
 # Test API through Nginx proxy
 curl -X POST http://your-domain.com/api/extract-table \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"}'
+  -d '{"url":"https://en.wikipedia.org/wiki/Women'\''s_high_jump_world_record_progression"}'
 ```
 
 #### 4. Browser Testing

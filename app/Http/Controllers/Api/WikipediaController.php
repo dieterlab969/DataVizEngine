@@ -55,9 +55,16 @@ class WikipediaController extends Controller
             $pythonScript = base_path('scripts/generate_visualization.py');
             $chartType = $request->chartType;
 
-            $result = Process::run(
-                "python3 {$pythonScript} --input {$inputFile} --output {$outputFile} --type {$chartType} --dpi 150"
-            );
+            // Use Replit's Python path if available, otherwise fallback to system python3
+            $pythonPath = file_exists(base_path('.pythonlibs/bin/python3')) 
+                ? base_path('.pythonlibs/bin/python3')
+                : 'python3';
+
+            // Set PYTHONPATH to include Replit's Python packages
+            $pythonLibPath = base_path('.pythonlibs/lib/python3.11/site-packages');
+            $command = "PYTHONPATH={$pythonLibPath}:\$PYTHONPATH {$pythonPath} {$pythonScript} --input {$inputFile} --output {$outputFile} --type {$chartType} --dpi 150";
+
+            $result = Process::run($command);
 
             if (!$result->successful()) {
                 throw new \Exception('Failed to generate visualization: ' . $result->errorOutput());
