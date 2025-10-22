@@ -37,10 +37,6 @@ externalPort = 80
 localPort = 8000
 externalPort = 8000
 
-[[ports]]
-localPort = 40515
-externalPort = 3000
-
 [deployment]
 deploymentTarget = "vm"
 run = ["bash", "-c", "npx concurrently -c '#93c5fd,#c4b5fd' 'npx vite preview --host 0.0.0.0 --port 5000' 'php artisan serve --host=0.0.0.0 --port=8000' --names=frontend,api --kill-others"]

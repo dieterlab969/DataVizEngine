@@ -382,28 +382,462 @@ DataVizEngine/
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing Guide
 
-### Manual Testing
+This section provides comprehensive testing instructions for DataVizEngine, including manual testing, automated unit tests, integration tests, and test criteria.
+
+---
+
+### 📋 Testing Overview
+
+DataVizEngine includes three levels of testing:
+
+1. **Manual Testing** - Browser and API testing for user workflows
+2. **Unit Tests** - Isolated component testing (Backend + Frontend)
+3. **Integration Tests** - End-to-end API workflow testing
+
+---
+
+### 1️⃣ Manual Testing
+
+#### A. Browser Testing (User Interface)
+
+**Prerequisites:**
+- Both servers must be running (frontend on port 5000, backend on port 8000)
+- Start servers with: `npm run dev` (in development) or the workflow
+
+**Test Workflow:**
+
+```
+Step 1: Access Application
+→ Open browser to http://localhost:5000
+✅ Expected: Wikipedia Table Visualizer page loads with input form
+
+Step 2: Extract Table Data
+→ Enter URL: https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)
+→ Click "Extract Table Data" button
+✅ Expected: Table preview appears showing first 10 rows
+✅ Expected: Dropdown shows numeric columns (Population, Area, etc.)
+
+Step 3: Generate Visualization
+→ Select a numeric column from dropdown (e.g., "Population")
+→ Choose chart type (Bar, Line, or Scatter)
+→ Click "Generate Visualization" button
+✅ Expected: Chart image appears below with proper labels
+✅ Expected: High-quality PNG visualization with country names and values
+
+Step 4: Error Handling
+→ Clear the URL field and click "Extract Table Data"
+✅ Expected: Validation error shown
+→ Enter invalid URL: https://google.com
+✅ Expected: Error message displayed
+```
+
+**Test Criteria:**
+
+| Test Case | Input | Expected Output | Pass/Fail |
+|-----------|-------|-----------------|-----------|
+| Valid Wikipedia URL | `https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)` | Table data with headers and rows | ✅ |
+| Empty URL | `` (empty string) | Validation error message | ✅ |
+| Non-Wikipedia URL | `https://google.com` | "Invalid URL" error | ✅ |
+| Wikipedia page without tables | `https://en.wikipedia.org/wiki/Wikipedia` | "No table found" error | ✅ |
+| Valid visualization request | Table data + column + chart type | PNG chart image | ✅ |
+
+---
+
+#### B. API Testing (Backend Endpoints)
+
+**Test Extract Table API:**
 
 ```bash
-# 1. Test Backend API Directly
+# Test 1: Valid Wikipedia URL
 curl -X POST http://localhost:8000/api/extract-table \
   -H "Content-Type: application/json" \
   -d '{"url":"https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)"}'
 
-# 2. Test Frontend
-# Open browser to http://localhost:5000
+# ✅ Expected Response (200 OK):
+# {
+#   "headers": ["Country", "Population", "Date", "% of world", "Source"],
+#   "rows": [
+#     ["China", "1411750000", "2 Jul 2023", "17.5%", "National estimate"],
+#     ["India", "1392329000", "2 Jul 2023", "17.3%", "Official projection"]
+#   ],
+#   "numericColumns": ["Population"]
+# }
 
-# 3. Check Logs
+# Test 2: Missing URL (should fail)
+curl -X POST http://localhost:8000/api/extract-table \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# ✅ Expected Response (422 Unprocessable Entity):
+# {
+#   "message": "The url field is required.",
+#   "errors": {
+#     "url": ["The url field is required."]
+#   }
+# }
+
+# Test 3: Invalid URL (should fail)
+curl -X POST http://localhost:8000/api/extract-table \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://google.com"}'
+
+# ✅ Expected Response (422 Unprocessable Entity):
+# {
+#   "message": "The url field must be a valid Wikipedia URL.",
+#   "errors": {
+#     "url": ["The url field must be a valid Wikipedia URL."]
+#   }
+# }
+```
+
+**Test Generate Visualization API:**
+
+```bash
+# Test 1: Valid visualization request
+curl -X POST http://localhost:8000/api/generate-visualization \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tableData": {
+      "headers": ["Country", "Population"],
+      "rows": [
+        ["China", "1411750000"],
+        ["India", "1392329000"],
+        ["USA", "334914895"]
+      ]
+    },
+    "selectedColumns": ["Population"],
+    "chartType": "bar"
+  }'
+
+# ✅ Expected Response (200 OK):
+# {
+#   "id": 1,
+#   "imageUrl": "/storage/viz_abc123def456.png",
+#   "chartType": "bar"
+# }
+
+# Test 2: Missing required fields (should fail)
+curl -X POST http://localhost:8000/api/generate-visualization \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# ✅ Expected Response (422 Unprocessable Entity):
+# Validation errors for missing fields
+```
+
+**Example Wikipedia URLs for Testing:**
+
+| Category | URL | Expected Numeric Columns |
+|----------|-----|-------------------------|
+| **Population** | `https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)` | Population |
+| **GDP** | `https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)` | GDP (Millions USD), Per capita |
+| **Olympics** | `https://en.wikipedia.org/wiki/All-time_Olympic_Games_medal_table` | Gold, Silver, Bronze, Total |
+| **Area** | `https://en.wikipedia.org/wiki/List_of_countries_by_area` | Total area (km²) |
+
+---
+
+### 2️⃣ Automated Unit Tests
+
+#### A. Backend Tests (Laravel PHPUnit)
+
+**Running Backend Tests:**
+
+```bash
+# Run all backend tests
+php artisan test
+
+# Run specific test file
+php artisan test tests/Unit/WikipediaExtractorTest.php
+
+# Run with coverage report
+php artisan test --coverage
+
+# Run only unit tests
+php artisan test --testsuite=Unit
+
+# Run only feature tests
+php artisan test --testsuite=Feature
+```
+
+**Backend Test Files:**
+
+1. **Unit Tests** (`tests/Unit/WikipediaExtractorTest.php`)
+   - Tests Wikipedia scraping service
+   - Tests table header extraction
+   - Tests numeric column detection
+   - Tests data cleaning (removing commas from numbers)
+   - Tests error handling for invalid URLs
+
+2. **Feature Tests** (`tests/Feature/WikipediaApiTest.php`)
+   - Tests API endpoint validation
+   - Tests request/response format
+   - Tests error responses
+   - Tests required fields
+
+**Test Criteria (Backend Unit Tests):**
+
+| Test | Input | Expected Output | Pass Criteria |
+|------|-------|-----------------|---------------|
+| Extract headers from `<thead>` | HTML table with `<thead>` | Array of header strings | Headers match exactly |
+| Extract headers from first `<tr>` | HTML table without `<thead>` | Array of header strings | Headers extracted from first row |
+| Identify numeric columns | Table with mixed data types | Array of numeric column names | Only columns with ≥70% numeric values |
+| Clean numeric values | "1,411,778,724" | "1411778724" | Commas removed |
+| Invalid URL rejection | `https://google.com` | Exception thrown | Exception message contains "Invalid Wikipedia URL" |
+| No table found | HTML without tables | Exception thrown | Exception message contains "No table found" |
+
+**Example: Running Unit Tests**
+
+```bash
+$ php artisan test tests/Unit/WikipediaExtractorTest.php
+
+   PASS  Tests\Unit\WikipediaExtractorTest
+  ✓ extracts table headers from thead                     0.15s  
+  ✓ identifies numeric columns                            0.08s  
+  ✓ handles table without thead                           0.06s  
+  ✓ cleans numeric values                                 0.05s  
+  ✓ throws exception for invalid url                      0.03s  
+  ✓ throws exception when no table found                  0.04s  
+
+  Tests:    6 passed (6 assertions)
+  Duration: 0.41s
+```
+
+---
+
+#### B. Frontend Tests (Vitest + React Testing Library)
+
+**Running Frontend Tests:**
+
+```bash
+# Run all frontend tests
+npm test
+
+# Run tests in watch mode (auto-rerun on changes)
+npm test -- --watch
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run specific test file
+npm test -- tests/frontend/App.test.tsx
+```
+
+**Frontend Test Files:**
+
+1. **Component Tests** (`tests/frontend/App.test.tsx`)
+   - Tests component rendering
+   - Tests user interactions (form submission, button clicks)
+   - Tests loading states
+   - Tests error display
+   - Tests table data display
+
+**Test Criteria (Frontend Unit Tests):**
+
+| Test | User Action | Expected Behavior | Pass Criteria |
+|------|-------------|-------------------|---------------|
+| Renders heading | Page load | "Wikipedia Table Visualizer" visible | Element found in DOM |
+| Renders input | Page load | URL input field visible | Placeholder text matches |
+| Shows loading state | Click "Extract Table Data" | Button text changes to "Loading..." | Button disabled during request |
+| Displays table data | Successful API response | Table rows rendered | Data from API visible |
+| Shows error message | Failed API response | Error message displayed | Error text matches |
+| Validates empty URL | Submit empty form | Validation error | Required attribute enforced |
+
+**Example: Running Frontend Tests**
+
+```bash
+$ npm test
+
+ ✓ tests/frontend/App.test.tsx (7)
+   ✓ App Component (7)
+     ✓ renders Wikipedia Table Visualizer heading
+     ✓ renders URL input field
+     ✓ renders Extract Table Data button
+     ✓ shows error when URL is empty on submit
+     ✓ displays loading state during API request
+     ✓ displays table data after successful extraction
+     ✓ displays error message when API fails
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  14:32:15
+   Duration  1.23s
+```
+
+---
+
+### 3️⃣ Integration Tests
+
+Integration tests verify the entire workflow from frontend to backend to Python visualization.
+
+**Running Integration Tests:**
+
+```bash
+# Run Laravel feature tests (API integration)
+php artisan test --testsuite=Feature
+
+# These tests verify:
+# - API routing works correctly
+# - Request validation is enforced
+# - Response format is correct
+# - Error handling is consistent
+```
+
+**Integration Test Scenarios:**
+
+| Scenario | Steps | Expected Result |
+|----------|-------|-----------------|
+| **Complete workflow** | 1. POST to `/api/extract-table`<br>2. Verify response contains headers, rows, numericColumns<br>3. POST to `/api/generate-visualization`<br>4. Verify image file created | All steps succeed, image file exists |
+| **Validation chain** | 1. POST with empty body<br>2. POST with invalid URL<br>3. POST with non-Wikipedia URL | All return 422 with appropriate error messages |
+| **Error propagation** | 1. Request page that doesn't exist<br>2. Request page without tables | Errors caught and returned as JSON |
+
+---
+
+### 4️⃣ Complete Test Suite Execution
+
+**Run All Tests (Backend + Frontend):**
+
+```bash
+# Terminal 1: Run backend tests
+php artisan test
+
+# Terminal 2: Run frontend tests
+npm test
+
+# Or create a test script (add to package.json):
+# "test:all": "php artisan test && npm test"
+```
+
+**Test Coverage Goals:**
+
+- **Backend Unit Tests**: 80%+ coverage of `app/Services/` and `app/Http/Controllers/`
+- **Frontend Unit Tests**: 70%+ coverage of React components
+- **Integration Tests**: All API endpoints must have feature tests
+
+---
+
+### 5️⃣ Test Data & Examples
+
+**Sample Table Data for Testing:**
+
+```javascript
+// Minimal valid table data
+{
+  "headers": ["Country", "Population"],
+  "rows": [
+    ["China", "1411750000"],
+    ["India", "1392329000"]
+  ]
+}
+
+// Table with multiple numeric columns
+{
+  "headers": ["Country", "Population", "GDP", "Area"],
+  "rows": [
+    ["China", "1411750000", "14720000", "9596961"],
+    ["India", "1392329000", "2875000", "3287263"],
+    ["USA", "334914895", "20940000", "9833520"]
+  ]
+}
+
+// Table with non-numeric column (should not be detected)
+{
+  "headers": ["Country", "Capital", "Population"],
+  "rows": [
+    ["China", "Beijing", "1411750000"],
+    ["India", "New Delhi", "1392329000"]
+  ]
+}
+```
+
+---
+
+### 6️⃣ Testing Checklist
+
+Before deploying or marking a feature complete, verify:
+
+- [ ] All backend unit tests pass (`php artisan test`)
+- [ ] All frontend unit tests pass (`npm test`)
+- [ ] Manual browser testing successful
+- [ ] API endpoints respond correctly (test with curl)
+- [ ] Error messages are clear and helpful
+- [ ] Loading states work properly
+- [ ] Generated visualizations display correctly
+- [ ] No console errors in browser
+- [ ] No errors in Laravel logs (`storage/logs/laravel.log`)
+
+---
+
+### 7️⃣ Continuous Testing (Development)
+
+**Watch Mode for Auto-Testing:**
+
+```bash
+# Frontend: Auto-run tests on file changes
+npm test -- --watch
+
+# Backend: Use Laravel Pint for code quality
+./vendor/bin/pint
+
+# Check code style
+./vendor/bin/pint --test
+```
+
+**Pre-Commit Testing:**
+
+```bash
+# Quick smoke test before committing
+php artisan test --testsuite=Feature && npm test
+```
+
+---
+
+### 🐛 Debugging Failed Tests
+
+**Backend Test Failures:**
+
+```bash
+# View detailed error output
+php artisan test --testdox
+
+# Run single test with more verbosity
+php artisan test --filter=test_extracts_table_headers_from_thead -vvv
+
+# Check Laravel logs
 tail -f storage/logs/laravel.log
 ```
 
-### Example Wikipedia URLs for Testing
+**Frontend Test Failures:**
 
-- **Countries by Population**: `https://en.wikipedia.org/wiki/List_of_countries_by_population_(United_Nations)`
-- **GDP by Country**: `https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(nominal)`
-- **Olympic Medal Count**: `https://en.wikipedia.org/wiki/All-time_Olympic_Games_medal_table`
+```bash
+# Run with verbose output
+npm test -- --reporter=verbose
+
+# Run specific test
+npm test -- -t "displays table data"
+
+# Check browser console output (tests run in jsdom)
+# Look for error messages in test output
+```
+
+---
+
+### 📊 Test Reports
+
+**Generate Coverage Reports:**
+
+```bash
+# Backend coverage (requires Xdebug)
+php artisan test --coverage-html reports/backend
+
+# Frontend coverage
+npm run test:coverage
+# Open coverage/index.html in browser
+```
 
 ---
 
